@@ -1,1 +1,1 @@
-uv run pytest -v
+uv run pytest -qr a src/test

@@ -67,3 +67,18 @@ def test_to_html_raises_not_implemented_error():
     test1 = HTMLNode("p", "text")
     with pytest.raises(NotImplementedError):
         test1.to_html()
+
+
+def test_repr_returns_default_field_values():
+    node = HTMLNode()
+    assert repr(node) == "HTMLNode(None, None, None, None)"
+
+
+def test_repr_returns_populated_field_values():
+    node = HTMLNode(
+        tag="div",
+        value="hello",
+        children=[],
+        props={"class": "title"},
+    )
+    assert repr(node) == "HTMLNode(div, hello, [], {'class': 'title'})"

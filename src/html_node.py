@@ -23,5 +23,5 @@ class HTMLNode:
             return ""
         return reduce(lambda acc, item: acc + f' {item[0]}="{item[1]}"', self.props.items(), "")
     
-    def __repr__(self):
-        pass
+    def __repr__(self) -> str:
+        return f"HTMLNode({self.tag}, {self.value}, {self.children}, {self.props})"
