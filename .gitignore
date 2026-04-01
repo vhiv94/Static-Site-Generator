@@ -8,3 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+
+# other random files
+cheat_sheet.md
+blockquote_styles.md
+architecture.png
