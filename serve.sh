@@ -1,0 +1,1 @@
+uv run python -m http.server -d /public 8888
