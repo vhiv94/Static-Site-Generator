@@ -12,9 +12,11 @@ extractLinksfunc = Callable[[str], list[tuple[str, str]]]
 LINK_PREFIXES = ("http://", "https://", "/", "./", "../", "#", "mailto:")
 IMAGE_PATH_PREFIXES = ("/", "./", "../")
 
-LINK_TARGET = r"(?:https?://[^)\s]+|/[^)\s]*|\./[^)\s]*|\.\./[^)\s]*|#[^)\s]+|mailto:[^)\s]+)"
+LINK_TARGET = (
+    r"(?:https?://[^)\s]+|/[^)\s]*|\./[^)\s]*|\.\./[^)\s]*|#[^)\s]+|mailto:[^)\s]+)"
+)
 URL_REGEX = rf"\[([^\]]+)\]\(({LINK_TARGET})\)"
-IMAGE_REGEX = r"!\[([^\]]+)\]((/|\./|\.\./)[^)\s]*)"
+IMAGE_REGEX = r"!\[([^\]]+)\]\(((?:/|\./|\.\./)[^)\s]*)\)"
 
 
 def _require_url(url: str | None, error_message: str) -> str:
@@ -76,7 +78,7 @@ def split_nodes_delimiter(
             continue
         if node.text.count(delimiter) % 2 == 1:
             raise Exception("Error: split nodes delimiter: Invalid Markdown syntax")
-        
+
         parts = node.text.split(delimiter)
         for i, part in enumerate(parts):
             if part == "":
@@ -86,12 +88,13 @@ def split_nodes_delimiter(
 
     return new_nodes
 
+
 def extract_links_factory(regex: str) -> extractLinksfunc:
     def wrapper(text: str) -> list[tuple[str, str]]:
         return re.findall(regex, text)
 
     return wrapper
 
+
 extract_markdown_links = extract_links_factory(URL_REGEX)
 extract_markdown_images = extract_links_factory(IMAGE_REGEX)
-    

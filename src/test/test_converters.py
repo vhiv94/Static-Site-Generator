@@ -1,6 +1,11 @@
 import pytest
 
-from converters import split_nodes_delimiter, text_node_to_leaf_node
+from converters import (
+    extract_markdown_images,
+    extract_markdown_links,
+    split_nodes_delimiter,
+    text_node_to_leaf_node,
+)
 from text_node import TextNode, TextType
 
 
@@ -199,3 +204,45 @@ def test_split_nodes_delimiter_raises_on_imbalanced_delimiters(text: str) -> Non
 
     with pytest.raises(Exception, match="Invalid Markdown syntax"):
         split_nodes_delimiter(nodes, "**", TextType.BOLD_TEXT)
+
+
+def test_extract_markdown_links_extracts_multiple_valid_matches() -> None:
+    text = (
+        "Read [Boot.dev Docs](https://boot.dev/docs) and "
+        "[Course Outline](../course-outline.md)."
+    )
+
+    assert extract_markdown_links(text) == [
+        ("Boot.dev Docs", "https://boot.dev/docs"),
+        ("Course Outline", "../course-outline.md"),
+    ]
+
+
+def test_extract_markdown_links_allows_spaces_in_link_text() -> None:
+    text = "Go to [week 2 notes 2026](./notes/week-2.md)"
+
+    assert extract_markdown_links(text) == [("week 2 notes 2026", "./notes/week-2.md")]
+
+
+def test_extract_markdown_links_rejects_invalid_or_spaced_targets() -> None:
+    text = (
+        "Bad [ftp link](ftp://example.com) "
+        "and bad [space target](https://example.com/has space)"
+    )
+
+    assert extract_markdown_links(text) == []
+
+
+def test_extract_markdown_images_extracts_multiple_relative_path_matches() -> None:
+    text = "![hero image](./assets/hero.png) and ![diagram 2](../images/diag-2.webp)"
+
+    assert extract_markdown_images(text) == [
+        ("hero image", "./assets/hero.png"),
+        ("diagram 2", "../images/diag-2.webp"),
+    ]
+
+
+def test_extract_markdown_images_rejects_absolute_url_targets() -> None:
+    text = "![cdn](https://cdn.example.com/image.png)"
+
+    assert extract_markdown_images(text) == []

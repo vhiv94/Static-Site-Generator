@@ -74,3 +74,11 @@
 - Assistant: Rewrote `test_html_node_is_abstract_and_cannot_be_instantiated` in `src/test/test_html_node.py` to a type-checker-friendly abstract-method assertion (`\"to_html\" in HTMLNode.__abstractmethods__`), then validated with `uv run pyright src` (0 errors) and confirmed lint clean.
 - User: "turns out we are handling imbalanced delimiters, you were right earlier. check the split_nodes_delimiter function in @src/converters.py again to make sure my addition handles that properly, and if so, update its tests in @src/test/test_converters.py"
 - Assistant: Confirmed `split_nodes_delimiter` now guards imbalanced delimiters via odd delimiter-count check, added parameterized exception tests in `src/test/test_converters.py` for unmatched `**` scenarios, and validated converter tests passing.
+- User: "I'm trying to make a function factory in @src/converters.py ... way to make it a decorated def?"
+- Assistant: Reviewed extractor factory usage and explained a decorator-factory alternative while noting behavior parity.
+- User: "which implementation is better ... benefit of converting it to a decorator or leaving as is"
+- Assistant: Recommended keeping the simple factory for this codebase size, described decorator trade-offs, and flagged greedy regex risk as higher-impact.
+- User: "how should I narrow down these capture groups"
+- Assistant: Suggested non-greedy delimiter-safe capture groups using negated character classes and optional stricter target-prefix patterns.
+- User: "excelent regex! write some tests in @src/test/test_converters.py for the new additions, please"
+- Assistant: Added extractor tests for links/images (multiple matches, spaced link text, invalid targets), fixed `IMAGE_REGEX` to correctly match parenthesized relative paths using a non-capturing prefix group, and validated with `PYTHONPATH=\"src\" uv run pytest src/test/test_converters.py` (40 passed) plus clean lints.
