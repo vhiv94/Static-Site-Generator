@@ -3,19 +3,17 @@ from html_node import HTMLNode
 
 class LeafNode(HTMLNode):
     def __init__(
-        self, tag: str, value: str, props: dict[str, str] | None = None
+        self, tag: str | None, value: str | None, props: dict[str, str] | None = None
     ) -> None:
         super().__init__(tag, value, None, props)
 
     @HTMLNode.children.setter
     def children(self, val: list[HTMLNode] | None) -> None:
-        raise AttributeError(
-            "Error: LeafNode: children cannot be set on leaf nodes"
-        )
+        raise AttributeError("Error: LeafNode: children cannot be set on leaf nodes")
 
     def to_html(self) -> str:
         if not self.tag:
-            return self.value if self.value is not None else ""
+            return "" if self.value is None else self.value
         elif self.value is None:
             return f"<{self.tag}{self.props_to_html()} />"
         return f"<{self.tag}{self.props_to_html()}>{self.value}</{self.tag}>"
