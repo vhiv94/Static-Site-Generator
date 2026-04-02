@@ -12,8 +12,9 @@ extractLinksfunc = Callable[[str], list[tuple[str, str]]]
 LINK_PREFIXES = ("http://", "https://", "/", "./", "../", "#", "mailto:")
 IMAGE_PATH_PREFIXES = ("/", "./", "../")
 
-URL_REGEX = r"\[(.+)\]\((.+)\)"
-IMAGE_REGEX = r"!\[(.+)\]\((.+)\)"
+LINK_TARGET = r"(?:https?://[^)\s]+|/[^)\s]*|\./[^)\s]*|\.\./[^)\s]*|#[^)\s]+|mailto:[^)\s]+)"
+URL_REGEX = rf"\[([^\]]+)\]\(({LINK_TARGET})\)"
+IMAGE_REGEX = r"!\[([^\]]+)\]((/|\./|\.\./)[^)\s]*)"
 
 
 def _require_url(url: str | None, error_message: str) -> str:
