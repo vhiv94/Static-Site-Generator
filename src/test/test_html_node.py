@@ -46,9 +46,8 @@ def test_html_node_stores_props_value():
     assert node.props == {"href": "https://www.google.com"}
 
 
-def test_html_node_is_abstract_and_cannot_be_instantiated():
-    with pytest.raises(TypeError):
-        HTMLNode("p", "text")
+def test_html_node_is_abstract_and_requires_to_html() -> None:
+    assert "to_html" in HTMLNode.__abstractmethods__
 
 
 def test_repr_returns_default_field_values():

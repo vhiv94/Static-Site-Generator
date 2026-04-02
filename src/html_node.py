@@ -1,5 +1,4 @@
 from __future__ import annotations
-from functools import reduce
 from abc import ABC, abstractmethod
 
 
@@ -65,9 +64,7 @@ class HTMLNode(ABC):
     def props_to_html(self) -> str:
         if self.props is None:
             return ""
-        return reduce(
-            lambda acc, item: acc + f' {item[0]}="{item[1]}"', self.props.items(), ""
-        )
+        return "".join(f' {key}="{value}"' for key, value in self.props.items())
 
     def __repr__(self) -> str:
         return f"HTMLNode({self.tag}, {self.value}, {self.children}, {self.props})"
