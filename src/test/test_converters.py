@@ -48,7 +48,9 @@ def test_text_node_to_leaf_node_anchor_requires_url() -> None:
         text_node_to_leaf_node(node)
 
 
-@pytest.mark.parametrize("url", ["/image.png", "./assets/image.png", "../images/photo.jpg"])
+@pytest.mark.parametrize(
+    "url", ["/image.png", "./assets/image.png", "../images/photo.jpg"]
+)
 def test_text_node_to_leaf_node_alt_accepts_valid_path_prefixes(url: str) -> None:
     node = TextNode("hero image", TextType.ALT_TEXT, url)
     leaf_node = text_node_to_leaf_node(node)
@@ -100,7 +102,9 @@ def test_text_node_to_leaf_node_non_link_or_image_types_return_plain_leafnode(
     assert leaf_node.props is None
 
 
-def test_text_node_to_leaf_node_anchor_allows_leading_whitespace_and_mixed_case_scheme() -> None:
+def test_text_node_to_leaf_node_anchor_allows_leading_whitespace_and_mixed_case_scheme() -> (
+    None
+):
     node = TextNode("link text", TextType.ANCHOR_TEXT, "   HtTpS://Boot.Dev/path")
     leaf_node = text_node_to_leaf_node(node)
 
@@ -121,7 +125,9 @@ def test_text_node_to_leaf_node_alt_preserves_original_src_and_alt_values() -> N
     assert leaf_node.props == {"src": "   ../assets/pic.png", "alt": "Profile image"}
 
 
-def test_split_nodes_delimiter_returns_original_plain_node_when_delimiter_missing() -> None:
+def test_split_nodes_delimiter_returns_original_plain_node_when_delimiter_missing() -> (
+    None
+):
     nodes = [TextNode("plain text only", TextType.PLAIN_TEXT)]
     result = split_nodes_delimiter(nodes, "**", TextType.BOLD_TEXT)
     assert result == [TextNode("plain text only", TextType.PLAIN_TEXT)]
@@ -161,7 +167,9 @@ def test_split_nodes_delimiter_drops_trailing_empty_split_segment() -> None:
     ]
 
 
-def test_split_nodes_delimiter_preserves_order_in_mixed_plain_and_non_plain_nodes() -> None:
+def test_split_nodes_delimiter_preserves_order_in_mixed_plain_and_non_plain_nodes() -> (
+    None
+):
     nodes = [
         TextNode("alpha **beta**", TextType.PLAIN_TEXT),
         TextNode("**leave me**", TextType.CODE_TEXT),
@@ -176,3 +184,18 @@ def test_split_nodes_delimiter_preserves_order_in_mixed_plain_and_non_plain_node
         TextNode("delta", TextType.BOLD_TEXT),
         TextNode(" epsilon", TextType.PLAIN_TEXT),
     ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "start **bold end",
+        "start **bold** mid **tail",
+        "**lead only",
+    ],
+)
+def test_split_nodes_delimiter_raises_on_imbalanced_delimiters(text: str) -> None:
+    nodes = [TextNode(text, TextType.PLAIN_TEXT)]
+
+    with pytest.raises(Exception, match="Invalid Markdown syntax"):
+        split_nodes_delimiter(nodes, "**", TextType.BOLD_TEXT)

@@ -1,4 +1,5 @@
 from text_node import TextNode, TextType
+
 # from parent_node import ParentNode
 from leaf_node import LeafNode
 
@@ -13,7 +14,11 @@ def _require_url(url: str | None, error_message: str) -> str:
 
 
 def _validate_prefix(
-    value: str, prefixes: tuple[str, ...], error_message: str, *, lowercase: bool = False
+    value: str,
+    prefixes: tuple[str, ...],
+    error_message: str,
+    *,
+    lowercase: bool = False,
 ) -> None:
     candidate = value.lstrip()
     if lowercase:
@@ -24,7 +29,9 @@ def _validate_prefix(
 
 def text_node_to_leaf_node(text_node: TextNode) -> LeafNode:
     if text_node.text_type == TextType.ANCHOR_TEXT:
-        url = _require_url(text_node.url, "Error: text node to leaf node: Links need a url")
+        url = _require_url(
+            text_node.url, "Error: text node to leaf node: Links need a url"
+        )
         _validate_prefix(
             url,
             LINK_PREFIXES,
@@ -34,9 +41,13 @@ def text_node_to_leaf_node(text_node: TextNode) -> LeafNode:
         return LeafNode(text_node.text_type.value, text_node.text, {"href": url})
 
     if text_node.text_type == TextType.ALT_TEXT:
-        url = _require_url(text_node.url, "Error: text node to leaf node: Images need a url")
+        url = _require_url(
+            text_node.url, "Error: text node to leaf node: Images need a url"
+        )
         _validate_prefix(
-            url, IMAGE_PATH_PREFIXES, "Error: text node to leaf node: invalid path to image"
+            url,
+            IMAGE_PATH_PREFIXES,
+            "Error: text node to leaf node: invalid path to image",
         )
         return LeafNode(
             text_node.text_type.value, None, {"src": url, "alt": text_node.text}
@@ -44,7 +55,10 @@ def text_node_to_leaf_node(text_node: TextNode) -> LeafNode:
 
     return LeafNode(text_node.text_type.value, text_node.text)
 
-def split_nodes_delimiter(old_nodes: list[TextNode], delimiter: str, text_type: TextType) -> list[TextNode]:
+
+def split_nodes_delimiter(
+    old_nodes: list[TextNode], delimiter: str, text_type: TextType
+) -> list[TextNode]:
     new_nodes: list[TextNode] = []
     for node in old_nodes:
         if node.text_type != TextType.PLAIN_TEXT or delimiter not in node.text:
@@ -58,5 +72,5 @@ def split_nodes_delimiter(old_nodes: list[TextNode], delimiter: str, text_type: 
                 continue
             part_type = TextType.PLAIN_TEXT if i % 2 == 0 else text_type
             new_nodes.append(TextNode(part, part_type))
- 
+
     return new_nodes

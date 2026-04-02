@@ -72,3 +72,5 @@
 - Assistant: Ran `uv run pyright src`; output narrowed to 3 errors total: two real `props` typing mismatches in `src/converters.py` and one abstract-class instantiation issue in `src/test/test_html_node.py` (no pytest import-resolution noise under uv).
 - User: "lets go with #2 rewrite that one test to be typechecker friendly"
 - Assistant: Rewrote `test_html_node_is_abstract_and_cannot_be_instantiated` in `src/test/test_html_node.py` to a type-checker-friendly abstract-method assertion (`\"to_html\" in HTMLNode.__abstractmethods__`), then validated with `uv run pyright src` (0 errors) and confirmed lint clean.
+- User: "turns out we are handling imbalanced delimiters, you were right earlier. check the split_nodes_delimiter function in @src/converters.py again to make sure my addition handles that properly, and if so, update its tests in @src/test/test_converters.py"
+- Assistant: Confirmed `split_nodes_delimiter` now guards imbalanced delimiters via odd delimiter-count check, added parameterized exception tests in `src/test/test_converters.py` for unmatched `**` scenarios, and validated converter tests passing.
