@@ -39,3 +39,14 @@
 - Assistant: Confirmed valueless `LeafNode` behavior for self-closing tags, corrected runtime-safe `HTMLNode` validation, updated tests to support abstract `HTMLNode` and valueless leaves, switched `TextNode.__eq__` signature to `other: object`, and validated all tests passing.
 - User: "Implement the following to-dos from the plan... add-import-and-scaffold, cover-anchor-branches, cover-alt-branches, cover-default-branch, cover-normalization"
 - Assistant: Updated `src/test/test_text_node.py` with a grouped `text_node_to_leaf_node` conversion section, added parameterized anchor/alt valid+invalid+missing-url tests, default branch tests, normalization/preservation tests, adjusted import resolution for `main.py`, verified with `uv run pytest src/test/test_text_node.py -k text_node_to_leaf_node` (26 passed), and confirmed no lints in the edited file.
+
+## 2026-04-02
+
+- User: "I added a new function, split_node_delimiter to @src/converters.py ... improvements? simplifications? missing edge case?"
+- Assistant: Reviewed `src/converters.py` and `src/text_node.py`, highlighted key risks (non-plain nodes being re-split, delimiter edge handling, import-time debug code), and suggested focused simplifications.
+- User: "I implemented the corrections ... assignment won't handle nested/unbalanced delimiters."
+- Assistant: Confirmed scope fit and called out one critical remaining item: explicitly skip non-plain nodes in `split_nodes_delimiter`.
+- User: "Implement the Converters review and test-build plan ..."
+- Assistant: Removed import-time debug code from `src/converters.py`, created `src/test/test_converters.py`, moved `text_node_to_leaf_node` tests out of `src/test/test_text_node.py`, added focused `split_nodes_delimiter` tests (plain split, non-plain passthrough, leading/trailing empty trimming, mixed-node ordering), and validated with `uv run pytest src/test/test_converters.py src/test/test_text_node.py` (48 passed).
+- User: "Add PYTHONPATH guidance to `.cursor/rules/pytest.mdc` and remove sys.path traversal workarounds in tests."
+- Assistant: Updated `.cursor/rules/pytest.mdc` with repository-specific command guidance (`PYTHONPATH=\"src\" uv run pytest -qr a src/test`) and a rule to avoid `sys.path` hacks in test modules, removed `Path/sys.path.insert(...)` from `src/test/test_converters.py` and `src/test/test_text_node.py`, and validated using `bash test.sh` (100 passed).
