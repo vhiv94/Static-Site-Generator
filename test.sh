@@ -1,1 +1,1 @@
-uv run pytest -qr a src/test
+PYTHONPATH="src" uv run pytest -qr a src/test

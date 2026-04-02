@@ -1,5 +1,10 @@
 import pytest
-from ..html_node import HTMLNode
+from html_node import HTMLNode
+
+
+class ConcreteHTMLNode(HTMLNode):
+    def to_html(self) -> str:
+        return ""
 
 
 @pytest.mark.parametrize(
@@ -8,6 +13,7 @@ from ..html_node import HTMLNode
         (None, ""),
         ({}, ""),
         ({"href": "https://www.google.com"}, ' href="https://www.google.com"'),
+        ({"disabled": ""}, ' disabled=""'),
         (
             {"href": "https://www.google.com", "target": "_blank"},
             ' href="https://www.google.com" target="_blank"',
@@ -15,70 +21,82 @@ from ..html_node import HTMLNode
     ],
 )
 def test_props_to_html_formats_props(props, expected):
-    test1 = HTMLNode(props=props)
+    test1 = ConcreteHTMLNode(props=props)
     assert test1.props_to_html() == expected
 
 
 def test_html_node_stores_tag_value():
-    child = HTMLNode("span", "child")
-    test1 = HTMLNode(
-        tag="a",
-        value="anchor",
-        children=[child],
-        props={"href": "https://www.google.com"},
-    )
-    assert test1.tag == "a"
+    node = ConcreteHTMLNode(tag="a")
+    assert node.tag == "a"
 
 
 def test_html_node_stores_value_value():
-    child = HTMLNode("span", "child")
-    test1 = HTMLNode(
-        tag="a",
-        value="anchor",
-        children=[child],
-        props={"href": "https://www.google.com"},
-    )
-    assert test1.value == "anchor"
+    node = ConcreteHTMLNode(value="anchor")
+    assert node.value == "anchor"
 
 
 def test_html_node_stores_children_value():
-    child = HTMLNode("span", "child")
-    test1 = HTMLNode(
-        tag="a",
-        value="anchor",
-        children=[child],
-        props={"href": "https://www.google.com"},
-    )
-    assert test1.children == [child]
+    child = ConcreteHTMLNode("span", "child")
+    node = ConcreteHTMLNode(children=[child])
+    assert node.children == [child]
 
 
 def test_html_node_stores_props_value():
-    child = HTMLNode("span", "child")
-    test1 = HTMLNode(
-        tag="a",
-        value="anchor",
-        children=[child],
-        props={"href": "https://www.google.com"},
-    )
-    assert test1.props == {"href": "https://www.google.com"}
+    node = ConcreteHTMLNode(props={"href": "https://www.google.com"})
+    assert node.props == {"href": "https://www.google.com"}
 
 
-def test_to_html_raises_not_implemented_error():
-    test1 = HTMLNode("p", "text")
-    with pytest.raises(NotImplementedError):
-        test1.to_html()
+def test_html_node_is_abstract_and_cannot_be_instantiated():
+    with pytest.raises(TypeError):
+        HTMLNode("p", "text")
 
 
 def test_repr_returns_default_field_values():
-    node = HTMLNode()
+    node = ConcreteHTMLNode()
     assert repr(node) == "HTMLNode(None, None, None, None)"
 
 
 def test_repr_returns_populated_field_values():
-    node = HTMLNode(
+    node = ConcreteHTMLNode(
         tag="div",
         value="hello",
         children=[],
         props={"class": "title"},
     )
     assert repr(node) == "HTMLNode(div, hello, [], {'class': 'title'})"
+
+
+@pytest.mark.parametrize("tag", [123, 1.25, object()])
+def test_html_node_init_raises_type_error_when_tag_invalid(tag: object) -> None:
+    with pytest.raises(TypeError):
+        ConcreteHTMLNode(tag=tag)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("value", [123, 1.25, object()])
+def test_html_node_init_raises_type_error_when_value_invalid(value: object) -> None:
+    with pytest.raises(TypeError):
+        ConcreteHTMLNode(value=value)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("children", ["child", {"a": 1}, object()])
+def test_html_node_init_raises_type_error_when_children_not_list(
+    children: object,
+) -> None:
+    with pytest.raises(TypeError):
+        ConcreteHTMLNode(children=children)  # type: ignore[arg-type]
+
+
+def test_html_node_init_raises_type_error_when_children_items_invalid() -> None:
+    with pytest.raises(TypeError):
+        ConcreteHTMLNode(children=["not-a-node"])  # type: ignore[list-item]
+
+
+@pytest.mark.parametrize("props", ["props", [("k", "v")], object()])
+def test_html_node_init_raises_type_error_when_props_not_dict(props: object) -> None:
+    with pytest.raises(TypeError):
+        ConcreteHTMLNode(props=props)  # type: ignore[arg-type]
+
+
+def test_html_node_init_raises_type_error_when_props_items_invalid() -> None:
+    with pytest.raises(TypeError):
+        ConcreteHTMLNode(props={"href": 123})  # type: ignore[dict-item]
