@@ -27,12 +27,14 @@ def text_node_to_leaf_node(text_node: TextNode) -> LeafNode:
 def split_nodes_delimiter(old_nodes: list[TextNode], delimiter: str, text_type: TextType) -> list[TextNode]:
     new_nodes: list[TextNode] = []
     for node in old_nodes:
-        if node.text.find(delimiter) == -1:
+        if delimiter not in node.text or node.text_type != TextType.PLAIN_TEXT:
             new_nodes.append(node)
             continue
         split_node: list = [(x, node.text_type if i%2==0 else text_type) for i,x in enumerate(node.text.split(delimiter))]
         if split_node[0][0] == "":
             del split_node[0]
+        if split_node[-1][0] == "":
+            split_node.pop()
         new_nodes.extend(list(map(lambda elem: TextNode(elem[0], elem[1]), split_node)))
  
     return new_nodes
