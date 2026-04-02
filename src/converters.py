@@ -50,6 +50,8 @@ def split_nodes_delimiter(old_nodes: list[TextNode], delimiter: str, text_type: 
         if node.text_type != TextType.PLAIN_TEXT or delimiter not in node.text:
             new_nodes.append(node)
             continue
+        if node.text.count(delimiter) % 2 == 1:
+            raise Exception("Error: split nodes delimiter: Invalid Markdown syntax")
         parts = node.text.split(delimiter)
         for i, part in enumerate(parts):
             if part == "":
