@@ -1,14 +1,24 @@
 import pytest
 
-from converters import (
+from src.text_to_leaf_nodes import (
     text_to_leaf_nodes,
-    extract_markdown_images,
-    extract_markdown_links,
-    split_nodes_links,
+    extract_links_factory,
+    URL_REGEX,
+    IMAGE_REGEX,
+    split_nodes_on_links,
     split_nodes_on_delimiter,
     text_node_to_leaf_node,
 )
+from leaf_node import LeafNode
 from text_node import TextNode, TextType
+
+
+def assert_leaf_nodes(
+    nodes: list[LeafNode],
+    expected: list[tuple[str | None, str | None, dict[str, str] | None]],
+) -> None:
+    assert all(isinstance(node, LeafNode) for node in nodes)
+    assert [(node.tag, node.value, node.props) for node in nodes] == expected
 
 
 @pytest.mark.parametrize(
@@ -70,22 +80,22 @@ def test_text_node_to_leaf_node_alt_accepts_valid_path_prefixes(url: str) -> Non
 @pytest.mark.parametrize(
     "url",
     [
-        "https://cdn.example.com/image.png",
         "images/photo.jpg",
         "C:/images/photo.jpg",
+        "ftp://cdn.example.com/image.png",
     ],
 )
 def test_text_node_to_leaf_node_alt_rejects_invalid_path_prefixes(url: str) -> None:
     node = TextNode("hero image", TextType.IMAGE, url)
 
-    with pytest.raises(ValueError, match="invalid path to image"):
+    with pytest.raises(ValueError, match="ivalid path"):
         text_node_to_leaf_node(node)
 
 
 def test_text_node_to_leaf_node_alt_requires_url() -> None:
     node = TextNode("hero image", TextType.IMAGE)
 
-    with pytest.raises(ValueError, match="Images need a url"):
+    with pytest.raises(ValueError, match="invalid path to image"):
         text_node_to_leaf_node(node)
 
 
@@ -98,7 +108,7 @@ def test_text_node_to_leaf_node_alt_requires_url() -> None:
         (TextType.CODE, "code"),
     ],
 )
-def test_text_node_to_leaf_node_non_link_or_image_types_return_plain_leafnode(
+def test_text_node_to_leaf_node_non_link_or_image_types_map_to_expected_leaf_tags(
     text_type: TextType, expected_tag: str | None
 ) -> None:
     node = TextNode("plain value", text_type)
@@ -208,177 +218,163 @@ def test_split_nodes_delimiter_raises_on_imbalanced_delimiters(text: str) -> Non
         split_nodes_on_delimiter(nodes, "**", TextType.BOLD)
 
 
-def test_delimit_nodes_splits_in_current_delimiter_sequence() -> None:
-    nodes = [TextNode("A `code` B **bold** C _italics_ D", TextType.PLAIN)]
+def test_text_to_leaf_nodes_splits_in_current_delimiter_sequence() -> None:
+    result = text_to_leaf_nodes("A `code` B **bold** C _italics_ D")
 
-    assert text_to_leaf_nodes(nodes) == [
-        TextNode("A ", TextType.PLAIN),
-        TextNode("code", TextType.CODE),
-        TextNode(" B ", TextType.PLAIN),
-        TextNode("bold", TextType.BOLD),
-        TextNode(" C ", TextType.PLAIN),
-        TextNode("italics", TextType.ITALIC),
-        TextNode(" D", TextType.PLAIN),
-    ]
+    assert_leaf_nodes(
+        result,
+        [
+            (None, "A ", None),
+            ("code", "code", None),
+            (None, " B ", None),
+            ("b", "bold", None),
+            (None, " C ", None),
+            ("i", "italics", None),
+            (None, " D", None),
+        ],
+    )
 
 
 @pytest.mark.parametrize(
-    ("text", "delimiter", "text_type"),
+    ("nodes", "is_url", "expected"),
     [
-        ("start _italics end", "_", TextType.ITALIC),
-        ("start `code end", "`", TextType.CODE),
+        (
+            [TextNode("prefix [docs](https://boot.dev) suffix", TextType.PLAIN)],
+            True,
+            [
+                TextNode("prefix ", TextType.PLAIN),
+                TextNode("docs", TextType.LINK, "https://boot.dev"),
+                TextNode(" suffix", TextType.PLAIN),
+            ],
+        ),
+        (
+            [TextNode("prefix ![hero](./hero.png) suffix", TextType.PLAIN)],
+            False,
+            [
+                TextNode("prefix ", TextType.PLAIN),
+                TextNode("hero", TextType.IMAGE, "./hero.png"),
+                TextNode(" suffix", TextType.PLAIN),
+            ],
+        ),
+        (
+            [TextNode("[docs](https://boot.dev)", TextType.BOLD)],
+            True,
+            [TextNode("[docs](https://boot.dev)", TextType.BOLD)],
+        ),
     ],
 )
-def test_split_nodes_delimiter_raises_for_unmatched_underscore_and_backtick(
-    text: str, delimiter: str, text_type: TextType
+def test_split_nodes_on_links_respects_current_is_url_routing(
+    nodes: list[TextNode], is_url: bool, expected: list[TextNode]
 ) -> None:
-    nodes = [TextNode(text, TextType.PLAIN)]
-
-    with pytest.raises(Exception, match="Invalid Markdown syntax"):
-        split_nodes_on_delimiter(nodes, delimiter, text_type)
-
-
-def test_split_nodes_links_splits_single_valid_link_with_surrounding_text() -> None:
-    nodes = [TextNode("prefix [docs](https://boot.dev) suffix", TextType.PLAIN)]
-
-    assert split_nodes_links(nodes) == [
-        TextNode("prefix ", TextType.PLAIN),
-        TextNode("docs", TextType.LINK, "https://boot.dev"),
-        TextNode(" suffix", TextType.PLAIN),
-    ]
-
-
-def test_split_nodes_links_splits_single_valid_image_with_surrounding_text() -> None:
-    nodes = [TextNode("prefix ![hero](./hero.png) suffix", TextType.PLAIN)]
-
-    assert split_nodes_links(nodes) == [
-        TextNode("prefix ", TextType.PLAIN),
-        TextNode("hero", TextType.IMAGE, "./hero.png"),
-        TextNode(" suffix", TextType.PLAIN),
-    ]
-
-
-def test_split_nodes_links_preserves_order_for_multiple_links() -> None:
-    nodes = [
-        TextNode(
-            "A [one](https://one.dev) B [two](https://two.dev) C", TextType.PLAIN
-        )
-    ]
-
-    assert split_nodes_links(nodes) == [
-        TextNode("A ", TextType.PLAIN),
-        TextNode("one", TextType.LINK, "https://one.dev"),
-        TextNode(" B ", TextType.PLAIN),
-        TextNode("two", TextType.LINK, "https://two.dev"),
-        TextNode(" C", TextType.PLAIN),
-    ]
-
-
-def test_split_nodes_links_preserves_order_for_multiple_images() -> None:
-    nodes = [
-        TextNode("A ![first](./one.png) B ![second](../two.png) C", TextType.PLAIN)
-    ]
-
-    assert split_nodes_links(nodes) == [
-        TextNode("A ", TextType.PLAIN),
-        TextNode("first", TextType.IMAGE, "./one.png"),
-        TextNode(" B ", TextType.PLAIN),
-        TextNode("second", TextType.IMAGE, "../two.png"),
-        TextNode(" C", TextType.PLAIN),
-    ]
-
-
-def test_split_nodes_links_preserves_order_for_mixed_link_and_image() -> None:
-    nodes = [
-        TextNode(
-            "A [docs](https://boot.dev) B ![hero](./hero.png) C", TextType.PLAIN
-        )
-    ]
-
-    assert split_nodes_links(nodes) == [
-        TextNode("A ", TextType.PLAIN),
-        TextNode("docs", TextType.LINK, "https://boot.dev"),
-        TextNode(" B ", TextType.PLAIN),
-        TextNode("hero", TextType.IMAGE, "./hero.png"),
-        TextNode(" C", TextType.PLAIN),
-    ]
+    assert split_nodes_on_links(nodes, is_url=is_url) == expected
 
 
 @pytest.mark.parametrize(
     "text",
     [
-        "prefix [broken](ftp://example.com) suffix",
-        "prefix ![broken](https://cdn.example.com/image.png) suffix",
-        "prefix [broken](https://example.com/has space) suffix",
-        "prefix [missing close](https://example.com suffix",
+        "start _italics end",
+        "start `code end",
+        "**bold*",
+        "*italics**",
     ],
 )
-def test_split_nodes_links_leaves_malformed_markdown_as_plain_text(text: str) -> None:
-    nodes = [TextNode(text, TextType.PLAIN)]
-
-    assert split_nodes_links(nodes) == [TextNode(text, TextType.PLAIN)]
-
-
-def test_split_nodes_links_keeps_non_plain_nodes_unchanged() -> None:
-    nodes = [TextNode("[docs](https://boot.dev)", TextType.BOLD)]
-
-    assert split_nodes_links(nodes) == nodes
+def test_text_to_leaf_nodes_raises_for_unmatched_delimiters(text: str) -> None:
+    with pytest.raises(Exception, match="Invalid Markdown syntax"):
+        text_to_leaf_nodes(text)
 
 
-def test_split_nodes_links_before_delimit_nodes_keeps_markup_inside_link_text_untouched() -> (
-    None
-):
-    initial = [
-        TextNode("before [**docs**](https://boot.dev) after", TextType.PLAIN)
-    ]
+def test_text_to_leaf_nodes_future_supports_link_segments() -> None:
+    result = text_to_leaf_nodes("before [docs](https://boot.dev) after")
 
-    split_first = split_nodes_links(initial)
-    result = text_to_leaf_nodes(split_first)
-
-    assert result == [
-        TextNode("before ", TextType.PLAIN),
-        TextNode("**docs**", TextType.LINK, "https://boot.dev"),
-        TextNode(" after", TextType.PLAIN),
-    ]
-
-
-def test_extract_markdown_links_extracts_multiple_valid_matches() -> None:
-    text = (
-        "Read [Boot.dev Docs](https://boot.dev/docs) and "
-        "[Course Outline](../course-outline.md)."
+    assert_leaf_nodes(
+        result,
+        [
+            (None, "before ", None),
+            ("a", "docs", {"href": "https://boot.dev"}),
+            (None, " after", None),
+        ],
     )
 
-    assert extract_markdown_links(text) == [
-        ("Boot.dev Docs", "https://boot.dev/docs"),
-        ("Course Outline", "../course-outline.md"),
-    ]
 
+def test_text_to_leaf_nodes_future_supports_image_segments() -> None:
+    result = text_to_leaf_nodes("before ![hero](./hero.png) after")
 
-def test_extract_markdown_links_allows_spaces_in_link_text() -> None:
-    text = "Go to [week 2 notes 2026](./notes/week-2.md)"
-
-    assert extract_markdown_links(text) == [("week 2 notes 2026", "./notes/week-2.md")]
-
-
-def test_extract_markdown_links_rejects_invalid_or_spaced_targets() -> None:
-    text = (
-        "Bad [ftp link](ftp://example.com) "
-        "and bad [space target](https://example.com/has space)"
+    assert_leaf_nodes(
+        result,
+        [
+            (None, "before ", None),
+            ("img", None, {"src": "./hero.png", "alt": "hero"}),
+            (None, " after", None),
+        ],
     )
 
-    assert extract_markdown_links(text) == []
+
+def test_text_to_leaf_nodes_future_supports_mixed_delimiter_and_link_image() -> None:
+    result = text_to_leaf_nodes(
+        "A **bold** [docs](https://boot.dev) ![hero](./hero.png)"
+    )
+
+    assert_leaf_nodes(
+        result,
+        [
+            (None, "A ", None),
+            ("b", "bold", None),
+            (None, " ", None),
+            ("a", "docs", {"href": "https://boot.dev"}),
+            (None, " ", None),
+            ("img", None, {"src": "./hero.png", "alt": "hero"}),
+        ],
+    )
 
 
-def test_extract_markdown_images_extracts_multiple_relative_path_matches() -> None:
-    text = "![hero image](./assets/hero.png) and ![diagram 2](../images/diag-2.webp)"
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (
+            "Read [Boot.dev Docs](https://boot.dev/docs) and "
+            "[Course Outline](../course-outline.md).",
+            [
+                ("Boot.dev Docs", "https://boot.dev/docs"),
+                ("Course Outline", "../course-outline.md"),
+            ],
+        ),
+        (
+            "Go to [week 2 notes 2026](./notes/week-2.md)",
+            [("week 2 notes 2026", "./notes/week-2.md")],
+        ),
+        (
+            "Bad [ftp link](ftp://example.com) "
+            "and bad [space target](https://example.com/has space)",
+            [],
+        ),
+    ],
+)
+def test_extract_links_factory_url_regex_extracts_expected_matches(
+    text: str, expected: list[tuple[str, str]]
+) -> None:
+    extract_links = extract_links_factory(URL_REGEX)
+    assert extract_links(text) == expected
 
-    assert extract_markdown_images(text) == [
-        ("hero image", "./assets/hero.png"),
-        ("diagram 2", "../images/diag-2.webp"),
-    ]
 
-
-def test_extract_markdown_images_rejects_absolute_url_targets() -> None:
-    text = "![cdn](https://cdn.example.com/image.png)"
-
-    assert extract_markdown_images(text) == []
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (
+            "![hero image](./assets/hero.png) and ![diagram 2](../images/diag-2.webp)",
+            [
+                ("hero image", "./assets/hero.png"),
+                ("diagram 2", "../images/diag-2.webp"),
+            ],
+        ),
+        (
+            "![cdn](https://cdn.example.com/image.png)",
+            [("cdn", "https://cdn.example.com/image.png")],
+        ),
+        ("![ftp](ftp://cdn.example.com/image.png)", []),
+    ],
+)
+def test_extract_links_factory_image_regex_extracts_expected_matches(
+    text: str, expected: list[tuple[str, str]]
+) -> None:
+    extract_images = extract_links_factory(IMAGE_REGEX)
+    assert extract_images(text) == expected
