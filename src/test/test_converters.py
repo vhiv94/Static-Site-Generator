@@ -1,11 +1,11 @@
 import pytest
 
 from converters import (
-    delimit_nodes,
+    text_to_leaf_nodes,
     extract_markdown_images,
     extract_markdown_links,
     split_nodes_links,
-    split_nodes_delimiter,
+    split_nodes_on_delimiter,
     text_node_to_leaf_node,
 )
 from text_node import TextNode, TextType
@@ -24,7 +24,7 @@ from text_node import TextNode, TextType
     ],
 )
 def test_text_node_to_leaf_node_anchor_accepts_valid_url_prefixes(url: str) -> None:
-    node = TextNode("link text", TextType.ANCHOR_TEXT, url)
+    node = TextNode("link text", TextType.LINK, url)
     leaf_node = text_node_to_leaf_node(node)
 
     assert leaf_node.tag == "a"
@@ -42,14 +42,14 @@ def test_text_node_to_leaf_node_anchor_accepts_valid_url_prefixes(url: str) -> N
     ],
 )
 def test_text_node_to_leaf_node_anchor_rejects_invalid_url_prefixes(url: str) -> None:
-    node = TextNode("link text", TextType.ANCHOR_TEXT, url)
+    node = TextNode("link text", TextType.LINK, url)
 
     with pytest.raises(ValueError, match="invalid url"):
         text_node_to_leaf_node(node)
 
 
 def test_text_node_to_leaf_node_anchor_requires_url() -> None:
-    node = TextNode("link text", TextType.ANCHOR_TEXT)
+    node = TextNode("link text", TextType.LINK)
 
     with pytest.raises(ValueError, match="Links need a url"):
         text_node_to_leaf_node(node)
@@ -59,7 +59,7 @@ def test_text_node_to_leaf_node_anchor_requires_url() -> None:
     "url", ["/image.png", "./assets/image.png", "../images/photo.jpg"]
 )
 def test_text_node_to_leaf_node_alt_accepts_valid_path_prefixes(url: str) -> None:
-    node = TextNode("hero image", TextType.ALT_TEXT, url)
+    node = TextNode("hero image", TextType.IMAGE, url)
     leaf_node = text_node_to_leaf_node(node)
 
     assert leaf_node.tag == "img"
@@ -76,14 +76,14 @@ def test_text_node_to_leaf_node_alt_accepts_valid_path_prefixes(url: str) -> Non
     ],
 )
 def test_text_node_to_leaf_node_alt_rejects_invalid_path_prefixes(url: str) -> None:
-    node = TextNode("hero image", TextType.ALT_TEXT, url)
+    node = TextNode("hero image", TextType.IMAGE, url)
 
     with pytest.raises(ValueError, match="invalid path to image"):
         text_node_to_leaf_node(node)
 
 
 def test_text_node_to_leaf_node_alt_requires_url() -> None:
-    node = TextNode("hero image", TextType.ALT_TEXT)
+    node = TextNode("hero image", TextType.IMAGE)
 
     with pytest.raises(ValueError, match="Images need a url"):
         text_node_to_leaf_node(node)
@@ -92,10 +92,10 @@ def test_text_node_to_leaf_node_alt_requires_url() -> None:
 @pytest.mark.parametrize(
     ("text_type", "expected_tag"),
     [
-        (TextType.PLAIN_TEXT, None),
-        (TextType.BOLD_TEXT, "b"),
-        (TextType.ITALIC_TEXT, "i"),
-        (TextType.CODE_TEXT, "code"),
+        (TextType.PLAIN, None),
+        (TextType.BOLD, "b"),
+        (TextType.ITALIC, "i"),
+        (TextType.CODE, "code"),
     ],
 )
 def test_text_node_to_leaf_node_non_link_or_image_types_return_plain_leafnode(
@@ -112,21 +112,21 @@ def test_text_node_to_leaf_node_non_link_or_image_types_return_plain_leafnode(
 def test_text_node_to_leaf_node_anchor_allows_leading_whitespace_and_mixed_case_scheme() -> (
     None
 ):
-    node = TextNode("link text", TextType.ANCHOR_TEXT, "   HtTpS://Boot.Dev/path")
+    node = TextNode("link text", TextType.LINK, "   HtTpS://Boot.Dev/path")
     leaf_node = text_node_to_leaf_node(node)
 
     assert leaf_node.props == {"href": "   HtTpS://Boot.Dev/path"}
 
 
 def test_text_node_to_leaf_node_anchor_preserves_original_href_value() -> None:
-    node = TextNode("link text", TextType.ANCHOR_TEXT, "  HTTPS://Boot.Dev")
+    node = TextNode("link text", TextType.LINK, "  HTTPS://Boot.Dev")
     leaf_node = text_node_to_leaf_node(node)
 
     assert leaf_node.props == {"href": "  HTTPS://Boot.Dev"}
 
 
 def test_text_node_to_leaf_node_alt_preserves_original_src_and_alt_values() -> None:
-    node = TextNode("Profile image", TextType.ALT_TEXT, "   ../assets/pic.png")
+    node = TextNode("Profile image", TextType.IMAGE, "   ../assets/pic.png")
     leaf_node = text_node_to_leaf_node(node)
 
     assert leaf_node.props == {"src": "   ../assets/pic.png", "alt": "Profile image"}
@@ -135,42 +135,42 @@ def test_text_node_to_leaf_node_alt_preserves_original_src_and_alt_values() -> N
 def test_split_nodes_delimiter_returns_original_plain_node_when_delimiter_missing() -> (
     None
 ):
-    nodes = [TextNode("plain text only", TextType.PLAIN_TEXT)]
-    result = split_nodes_delimiter(nodes, "**", TextType.BOLD_TEXT)
-    assert result == [TextNode("plain text only", TextType.PLAIN_TEXT)]
+    nodes = [TextNode("plain text only", TextType.PLAIN)]
+    result = split_nodes_on_delimiter(nodes, "**", TextType.BOLD)
+    assert result == [TextNode("plain text only", TextType.PLAIN)]
 
 
 def test_split_nodes_delimiter_splits_plain_text_into_alternating_types() -> None:
-    nodes = [TextNode("start **bold** end", TextType.PLAIN_TEXT)]
-    result = split_nodes_delimiter(nodes, "**", TextType.BOLD_TEXT)
+    nodes = [TextNode("start **bold** end", TextType.PLAIN)]
+    result = split_nodes_on_delimiter(nodes, "**", TextType.BOLD)
     assert result == [
-        TextNode("start ", TextType.PLAIN_TEXT),
-        TextNode("bold", TextType.BOLD_TEXT),
-        TextNode(" end", TextType.PLAIN_TEXT),
+        TextNode("start ", TextType.PLAIN),
+        TextNode("bold", TextType.BOLD),
+        TextNode(" end", TextType.PLAIN),
     ]
 
 
 def test_split_nodes_delimiter_does_not_split_non_plain_nodes() -> None:
-    nodes = [TextNode("**not split**", TextType.CODE_TEXT)]
-    result = split_nodes_delimiter(nodes, "**", TextType.BOLD_TEXT)
-    assert result == [TextNode("**not split**", TextType.CODE_TEXT)]
+    nodes = [TextNode("**not split**", TextType.CODE)]
+    result = split_nodes_on_delimiter(nodes, "**", TextType.BOLD)
+    assert result == [TextNode("**not split**", TextType.CODE)]
 
 
 def test_split_nodes_delimiter_drops_leading_empty_split_segment() -> None:
-    nodes = [TextNode("**bold** tail", TextType.PLAIN_TEXT)]
-    result = split_nodes_delimiter(nodes, "**", TextType.BOLD_TEXT)
+    nodes = [TextNode("**bold** tail", TextType.PLAIN)]
+    result = split_nodes_on_delimiter(nodes, "**", TextType.BOLD)
     assert result == [
-        TextNode("bold", TextType.BOLD_TEXT),
-        TextNode(" tail", TextType.PLAIN_TEXT),
+        TextNode("bold", TextType.BOLD),
+        TextNode(" tail", TextType.PLAIN),
     ]
 
 
 def test_split_nodes_delimiter_drops_trailing_empty_split_segment() -> None:
-    nodes = [TextNode("head **bold**", TextType.PLAIN_TEXT)]
-    result = split_nodes_delimiter(nodes, "**", TextType.BOLD_TEXT)
+    nodes = [TextNode("head **bold**", TextType.PLAIN)]
+    result = split_nodes_on_delimiter(nodes, "**", TextType.BOLD)
     assert result == [
-        TextNode("head ", TextType.PLAIN_TEXT),
-        TextNode("bold", TextType.BOLD_TEXT),
+        TextNode("head ", TextType.PLAIN),
+        TextNode("bold", TextType.BOLD),
     ]
 
 
@@ -178,18 +178,18 @@ def test_split_nodes_delimiter_preserves_order_in_mixed_plain_and_non_plain_node
     None
 ):
     nodes = [
-        TextNode("alpha **beta**", TextType.PLAIN_TEXT),
-        TextNode("**leave me**", TextType.CODE_TEXT),
-        TextNode("gamma **delta** epsilon", TextType.PLAIN_TEXT),
+        TextNode("alpha **beta**", TextType.PLAIN),
+        TextNode("**leave me**", TextType.CODE),
+        TextNode("gamma **delta** epsilon", TextType.PLAIN),
     ]
-    result = split_nodes_delimiter(nodes, "**", TextType.BOLD_TEXT)
+    result = split_nodes_on_delimiter(nodes, "**", TextType.BOLD)
     assert result == [
-        TextNode("alpha ", TextType.PLAIN_TEXT),
-        TextNode("beta", TextType.BOLD_TEXT),
-        TextNode("**leave me**", TextType.CODE_TEXT),
-        TextNode("gamma ", TextType.PLAIN_TEXT),
-        TextNode("delta", TextType.BOLD_TEXT),
-        TextNode(" epsilon", TextType.PLAIN_TEXT),
+        TextNode("alpha ", TextType.PLAIN),
+        TextNode("beta", TextType.BOLD),
+        TextNode("**leave me**", TextType.CODE),
+        TextNode("gamma ", TextType.PLAIN),
+        TextNode("delta", TextType.BOLD),
+        TextNode(" epsilon", TextType.PLAIN),
     ]
 
 
@@ -202,105 +202,105 @@ def test_split_nodes_delimiter_preserves_order_in_mixed_plain_and_non_plain_node
     ],
 )
 def test_split_nodes_delimiter_raises_on_imbalanced_delimiters(text: str) -> None:
-    nodes = [TextNode(text, TextType.PLAIN_TEXT)]
+    nodes = [TextNode(text, TextType.PLAIN)]
 
     with pytest.raises(Exception, match="Invalid Markdown syntax"):
-        split_nodes_delimiter(nodes, "**", TextType.BOLD_TEXT)
+        split_nodes_on_delimiter(nodes, "**", TextType.BOLD)
 
 
 def test_delimit_nodes_splits_in_current_delimiter_sequence() -> None:
-    nodes = [TextNode("A `code` B **bold** C _italics_ D", TextType.PLAIN_TEXT)]
+    nodes = [TextNode("A `code` B **bold** C _italics_ D", TextType.PLAIN)]
 
-    assert delimit_nodes(nodes) == [
-        TextNode("A ", TextType.PLAIN_TEXT),
-        TextNode("code", TextType.CODE_TEXT),
-        TextNode(" B ", TextType.PLAIN_TEXT),
-        TextNode("bold", TextType.BOLD_TEXT),
-        TextNode(" C ", TextType.PLAIN_TEXT),
-        TextNode("italics", TextType.ITALIC_TEXT),
-        TextNode(" D", TextType.PLAIN_TEXT),
+    assert text_to_leaf_nodes(nodes) == [
+        TextNode("A ", TextType.PLAIN),
+        TextNode("code", TextType.CODE),
+        TextNode(" B ", TextType.PLAIN),
+        TextNode("bold", TextType.BOLD),
+        TextNode(" C ", TextType.PLAIN),
+        TextNode("italics", TextType.ITALIC),
+        TextNode(" D", TextType.PLAIN),
     ]
 
 
 @pytest.mark.parametrize(
     ("text", "delimiter", "text_type"),
     [
-        ("start _italics end", "_", TextType.ITALIC_TEXT),
-        ("start `code end", "`", TextType.CODE_TEXT),
+        ("start _italics end", "_", TextType.ITALIC),
+        ("start `code end", "`", TextType.CODE),
     ],
 )
 def test_split_nodes_delimiter_raises_for_unmatched_underscore_and_backtick(
     text: str, delimiter: str, text_type: TextType
 ) -> None:
-    nodes = [TextNode(text, TextType.PLAIN_TEXT)]
+    nodes = [TextNode(text, TextType.PLAIN)]
 
     with pytest.raises(Exception, match="Invalid Markdown syntax"):
-        split_nodes_delimiter(nodes, delimiter, text_type)
+        split_nodes_on_delimiter(nodes, delimiter, text_type)
 
 
 def test_split_nodes_links_splits_single_valid_link_with_surrounding_text() -> None:
-    nodes = [TextNode("prefix [docs](https://boot.dev) suffix", TextType.PLAIN_TEXT)]
+    nodes = [TextNode("prefix [docs](https://boot.dev) suffix", TextType.PLAIN)]
 
     assert split_nodes_links(nodes) == [
-        TextNode("prefix ", TextType.PLAIN_TEXT),
-        TextNode("docs", TextType.ANCHOR_TEXT, "https://boot.dev"),
-        TextNode(" suffix", TextType.PLAIN_TEXT),
+        TextNode("prefix ", TextType.PLAIN),
+        TextNode("docs", TextType.LINK, "https://boot.dev"),
+        TextNode(" suffix", TextType.PLAIN),
     ]
 
 
 def test_split_nodes_links_splits_single_valid_image_with_surrounding_text() -> None:
-    nodes = [TextNode("prefix ![hero](./hero.png) suffix", TextType.PLAIN_TEXT)]
+    nodes = [TextNode("prefix ![hero](./hero.png) suffix", TextType.PLAIN)]
 
     assert split_nodes_links(nodes) == [
-        TextNode("prefix ", TextType.PLAIN_TEXT),
-        TextNode("hero", TextType.ALT_TEXT, "./hero.png"),
-        TextNode(" suffix", TextType.PLAIN_TEXT),
+        TextNode("prefix ", TextType.PLAIN),
+        TextNode("hero", TextType.IMAGE, "./hero.png"),
+        TextNode(" suffix", TextType.PLAIN),
     ]
 
 
 def test_split_nodes_links_preserves_order_for_multiple_links() -> None:
     nodes = [
         TextNode(
-            "A [one](https://one.dev) B [two](https://two.dev) C", TextType.PLAIN_TEXT
+            "A [one](https://one.dev) B [two](https://two.dev) C", TextType.PLAIN
         )
     ]
 
     assert split_nodes_links(nodes) == [
-        TextNode("A ", TextType.PLAIN_TEXT),
-        TextNode("one", TextType.ANCHOR_TEXT, "https://one.dev"),
-        TextNode(" B ", TextType.PLAIN_TEXT),
-        TextNode("two", TextType.ANCHOR_TEXT, "https://two.dev"),
-        TextNode(" C", TextType.PLAIN_TEXT),
+        TextNode("A ", TextType.PLAIN),
+        TextNode("one", TextType.LINK, "https://one.dev"),
+        TextNode(" B ", TextType.PLAIN),
+        TextNode("two", TextType.LINK, "https://two.dev"),
+        TextNode(" C", TextType.PLAIN),
     ]
 
 
 def test_split_nodes_links_preserves_order_for_multiple_images() -> None:
     nodes = [
-        TextNode("A ![first](./one.png) B ![second](../two.png) C", TextType.PLAIN_TEXT)
+        TextNode("A ![first](./one.png) B ![second](../two.png) C", TextType.PLAIN)
     ]
 
     assert split_nodes_links(nodes) == [
-        TextNode("A ", TextType.PLAIN_TEXT),
-        TextNode("first", TextType.ALT_TEXT, "./one.png"),
-        TextNode(" B ", TextType.PLAIN_TEXT),
-        TextNode("second", TextType.ALT_TEXT, "../two.png"),
-        TextNode(" C", TextType.PLAIN_TEXT),
+        TextNode("A ", TextType.PLAIN),
+        TextNode("first", TextType.IMAGE, "./one.png"),
+        TextNode(" B ", TextType.PLAIN),
+        TextNode("second", TextType.IMAGE, "../two.png"),
+        TextNode(" C", TextType.PLAIN),
     ]
 
 
 def test_split_nodes_links_preserves_order_for_mixed_link_and_image() -> None:
     nodes = [
         TextNode(
-            "A [docs](https://boot.dev) B ![hero](./hero.png) C", TextType.PLAIN_TEXT
+            "A [docs](https://boot.dev) B ![hero](./hero.png) C", TextType.PLAIN
         )
     ]
 
     assert split_nodes_links(nodes) == [
-        TextNode("A ", TextType.PLAIN_TEXT),
-        TextNode("docs", TextType.ANCHOR_TEXT, "https://boot.dev"),
-        TextNode(" B ", TextType.PLAIN_TEXT),
-        TextNode("hero", TextType.ALT_TEXT, "./hero.png"),
-        TextNode(" C", TextType.PLAIN_TEXT),
+        TextNode("A ", TextType.PLAIN),
+        TextNode("docs", TextType.LINK, "https://boot.dev"),
+        TextNode(" B ", TextType.PLAIN),
+        TextNode("hero", TextType.IMAGE, "./hero.png"),
+        TextNode(" C", TextType.PLAIN),
     ]
 
 
@@ -314,13 +314,13 @@ def test_split_nodes_links_preserves_order_for_mixed_link_and_image() -> None:
     ],
 )
 def test_split_nodes_links_leaves_malformed_markdown_as_plain_text(text: str) -> None:
-    nodes = [TextNode(text, TextType.PLAIN_TEXT)]
+    nodes = [TextNode(text, TextType.PLAIN)]
 
-    assert split_nodes_links(nodes) == [TextNode(text, TextType.PLAIN_TEXT)]
+    assert split_nodes_links(nodes) == [TextNode(text, TextType.PLAIN)]
 
 
 def test_split_nodes_links_keeps_non_plain_nodes_unchanged() -> None:
-    nodes = [TextNode("[docs](https://boot.dev)", TextType.BOLD_TEXT)]
+    nodes = [TextNode("[docs](https://boot.dev)", TextType.BOLD)]
 
     assert split_nodes_links(nodes) == nodes
 
@@ -329,16 +329,16 @@ def test_split_nodes_links_before_delimit_nodes_keeps_markup_inside_link_text_un
     None
 ):
     initial = [
-        TextNode("before [**docs**](https://boot.dev) after", TextType.PLAIN_TEXT)
+        TextNode("before [**docs**](https://boot.dev) after", TextType.PLAIN)
     ]
 
     split_first = split_nodes_links(initial)
-    result = delimit_nodes(split_first)
+    result = text_to_leaf_nodes(split_first)
 
     assert result == [
-        TextNode("before ", TextType.PLAIN_TEXT),
-        TextNode("**docs**", TextType.ANCHOR_TEXT, "https://boot.dev"),
-        TextNode(" after", TextType.PLAIN_TEXT),
+        TextNode("before ", TextType.PLAIN),
+        TextNode("**docs**", TextType.LINK, "https://boot.dev"),
+        TextNode(" after", TextType.PLAIN),
     ]
 
 
