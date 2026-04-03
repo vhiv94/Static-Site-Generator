@@ -163,3 +163,9 @@ def text_to_leaf_nodes(text: str) -> list[LeafNode]:
 
     # convert to leaf nodes and return
     return list(map(lambda node: text_node_to_leaf_node(node), text_nodes))
+
+
+def split_markdown_blocks(markdown: str) -> list[str]:
+    if re.search(r"\n{3,9}", markdown):
+        raise ValueError("too much white space in markdown file")
+    return markdown.strip().split("\n\n")

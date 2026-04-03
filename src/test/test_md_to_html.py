@@ -1,6 +1,6 @@
 import pytest
 
-from src.text_to_leaf_nodes import (
+from src.md_to_html import (
     text_to_leaf_nodes,
     extract_links_factory,
     URL_REGEX,
@@ -8,6 +8,7 @@ from src.text_to_leaf_nodes import (
     split_nodes_on_links,
     split_nodes_on_delimiter,
     text_node_to_leaf_node,
+    split_markdown_blocks,
 )
 from leaf_node import LeafNode
 from text_node import TextNode, TextType
@@ -378,3 +379,33 @@ def test_extract_links_factory_image_regex_extracts_expected_matches(
 ) -> None:
     extract_images = extract_links_factory(IMAGE_REGEX)
     assert extract_images(text) == expected
+
+
+def test_split_markdown_blocks_splits_multiple_paragraph_blocks() -> None:
+    markdown = "first paragraph\n\nsecond paragraph\n\nthird paragraph"
+    assert split_markdown_blocks(markdown) == [
+        "first paragraph",
+        "second paragraph",
+        "third paragraph",
+    ]
+
+
+def test_split_markdown_blocks_trims_outer_whitespace_before_split() -> None:
+    markdown = "\n\n  first paragraph\n\nsecond paragraph  \n\n"
+    assert split_markdown_blocks(markdown) == ["first paragraph", "second paragraph"]
+
+
+def test_split_markdown_blocks_keeps_single_newlines_within_block() -> None:
+    markdown = "line one\nline two\nline three"
+    assert split_markdown_blocks(markdown) == ["line one\nline two\nline three"]
+
+
+def test_split_markdown_blocks_returns_single_block_for_single_paragraph() -> None:
+    markdown = "just one block"
+    assert split_markdown_blocks(markdown) == ["just one block"]
+
+
+def test_split_markdown_blocks_raises_for_extra_blank_lines_between_blocks() -> None:
+    markdown = "first\n\n\n\nsecond"
+    with pytest.raises(ValueError, match="too much white space in markdown file"):
+        split_markdown_blocks(markdown)
