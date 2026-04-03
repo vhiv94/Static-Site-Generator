@@ -12,7 +12,11 @@ from src.md_to_html import (
     text_node_to_leaf_node,
     split_markdown_blocks,
     get_block_type_from_block,
+<<<<<<< HEAD
     _list_to_list_node,
+=======
+    _list_to_list_nodes,
+>>>>>>> 9daa415 (finish markdown to html and start on copy generate from static)
     _parse_list_nodes_r,
 )
 from parent_node import DivNode
@@ -536,7 +540,11 @@ def test_markdown_to_html_converts_tab_indented_nested_unordered_list() -> None:
 def test_parse_list_nodes_builds_li_nodes_for_ordered_and_unordered_lists(
     lines: list[str], is_ordered: bool, expected: list[tuple[str, str]]
 ) -> None:
+<<<<<<< HEAD
     nodes = _list_to_list_node(lines, is_ordered=is_ordered)
+=======
+    nodes = _list_to_list_nodes(lines, is_ordered=is_ordered)
+>>>>>>> 9daa415 (finish markdown to html and start on copy generate from static)
 
     assert [(node.tag, node.children[0].value) for node in nodes] == expected
 
@@ -566,4 +574,8 @@ def test_parse_list_helpers_raise_errors_for_malformed_input(
     lines: list[str], error: str
 ) -> None:
     with pytest.raises(ValueError, match=error):
+<<<<<<< HEAD
         _list_to_list_node(lines, is_ordered=False)
+=======
+        _list_to_list_nodes(lines, is_ordered=False)
+>>>>>>> 9daa415 (finish markdown to html and start on copy generate from static)

@@ -3,9 +3,12 @@ import re
 from typing import Callable
 from src.parent_node import ParentNode, DivNode
 from src.html_node import HTMLNode
-from src.text_node import TextNode, TextType, BlockType
-from src.leaf_node import LeafNode
+from src.src.parent_node import ParentNode, DivNode
+from src.html_node import HTMLNode
+from src.text_node import TextNode, TextType, BlockType, BlockType
+from src.src.leaf_node import LeafNode
 
+_ExtractLinksFunc = Callable[[str], list[tuple[str, str]]]
 _ExtractLinksFunc = Callable[[str], list[tuple[str, str]]]
 
 DELIMITERS = [
