@@ -1,8 +1,10 @@
 import pytest
 
 from converters import (
+    delimit_nodes,
     extract_markdown_images,
     extract_markdown_links,
+    split_nodes_links,
     split_nodes_delimiter,
     text_node_to_leaf_node,
 )
@@ -204,6 +206,140 @@ def test_split_nodes_delimiter_raises_on_imbalanced_delimiters(text: str) -> Non
 
     with pytest.raises(Exception, match="Invalid Markdown syntax"):
         split_nodes_delimiter(nodes, "**", TextType.BOLD_TEXT)
+
+
+def test_delimit_nodes_splits_in_current_delimiter_sequence() -> None:
+    nodes = [TextNode("A `code` B **bold** C _italics_ D", TextType.PLAIN_TEXT)]
+
+    assert delimit_nodes(nodes) == [
+        TextNode("A ", TextType.PLAIN_TEXT),
+        TextNode("code", TextType.CODE_TEXT),
+        TextNode(" B ", TextType.PLAIN_TEXT),
+        TextNode("bold", TextType.BOLD_TEXT),
+        TextNode(" C ", TextType.PLAIN_TEXT),
+        TextNode("italics", TextType.ITALIC_TEXT),
+        TextNode(" D", TextType.PLAIN_TEXT),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("text", "delimiter", "text_type"),
+    [
+        ("start _italics end", "_", TextType.ITALIC_TEXT),
+        ("start `code end", "`", TextType.CODE_TEXT),
+    ],
+)
+def test_split_nodes_delimiter_raises_for_unmatched_underscore_and_backtick(
+    text: str, delimiter: str, text_type: TextType
+) -> None:
+    nodes = [TextNode(text, TextType.PLAIN_TEXT)]
+
+    with pytest.raises(Exception, match="Invalid Markdown syntax"):
+        split_nodes_delimiter(nodes, delimiter, text_type)
+
+
+def test_split_nodes_links_splits_single_valid_link_with_surrounding_text() -> None:
+    nodes = [TextNode("prefix [docs](https://boot.dev) suffix", TextType.PLAIN_TEXT)]
+
+    assert split_nodes_links(nodes) == [
+        TextNode("prefix ", TextType.PLAIN_TEXT),
+        TextNode("docs", TextType.ANCHOR_TEXT, "https://boot.dev"),
+        TextNode(" suffix", TextType.PLAIN_TEXT),
+    ]
+
+
+def test_split_nodes_links_splits_single_valid_image_with_surrounding_text() -> None:
+    nodes = [TextNode("prefix ![hero](./hero.png) suffix", TextType.PLAIN_TEXT)]
+
+    assert split_nodes_links(nodes) == [
+        TextNode("prefix ", TextType.PLAIN_TEXT),
+        TextNode("hero", TextType.ALT_TEXT, "./hero.png"),
+        TextNode(" suffix", TextType.PLAIN_TEXT),
+    ]
+
+
+def test_split_nodes_links_preserves_order_for_multiple_links() -> None:
+    nodes = [
+        TextNode(
+            "A [one](https://one.dev) B [two](https://two.dev) C", TextType.PLAIN_TEXT
+        )
+    ]
+
+    assert split_nodes_links(nodes) == [
+        TextNode("A ", TextType.PLAIN_TEXT),
+        TextNode("one", TextType.ANCHOR_TEXT, "https://one.dev"),
+        TextNode(" B ", TextType.PLAIN_TEXT),
+        TextNode("two", TextType.ANCHOR_TEXT, "https://two.dev"),
+        TextNode(" C", TextType.PLAIN_TEXT),
+    ]
+
+
+def test_split_nodes_links_preserves_order_for_multiple_images() -> None:
+    nodes = [
+        TextNode("A ![first](./one.png) B ![second](../two.png) C", TextType.PLAIN_TEXT)
+    ]
+
+    assert split_nodes_links(nodes) == [
+        TextNode("A ", TextType.PLAIN_TEXT),
+        TextNode("first", TextType.ALT_TEXT, "./one.png"),
+        TextNode(" B ", TextType.PLAIN_TEXT),
+        TextNode("second", TextType.ALT_TEXT, "../two.png"),
+        TextNode(" C", TextType.PLAIN_TEXT),
+    ]
+
+
+def test_split_nodes_links_preserves_order_for_mixed_link_and_image() -> None:
+    nodes = [
+        TextNode(
+            "A [docs](https://boot.dev) B ![hero](./hero.png) C", TextType.PLAIN_TEXT
+        )
+    ]
+
+    assert split_nodes_links(nodes) == [
+        TextNode("A ", TextType.PLAIN_TEXT),
+        TextNode("docs", TextType.ANCHOR_TEXT, "https://boot.dev"),
+        TextNode(" B ", TextType.PLAIN_TEXT),
+        TextNode("hero", TextType.ALT_TEXT, "./hero.png"),
+        TextNode(" C", TextType.PLAIN_TEXT),
+    ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "prefix [broken](ftp://example.com) suffix",
+        "prefix ![broken](https://cdn.example.com/image.png) suffix",
+        "prefix [broken](https://example.com/has space) suffix",
+        "prefix [missing close](https://example.com suffix",
+    ],
+)
+def test_split_nodes_links_leaves_malformed_markdown_as_plain_text(text: str) -> None:
+    nodes = [TextNode(text, TextType.PLAIN_TEXT)]
+
+    assert split_nodes_links(nodes) == [TextNode(text, TextType.PLAIN_TEXT)]
+
+
+def test_split_nodes_links_keeps_non_plain_nodes_unchanged() -> None:
+    nodes = [TextNode("[docs](https://boot.dev)", TextType.BOLD_TEXT)]
+
+    assert split_nodes_links(nodes) == nodes
+
+
+def test_split_nodes_links_before_delimit_nodes_keeps_markup_inside_link_text_untouched() -> (
+    None
+):
+    initial = [
+        TextNode("before [**docs**](https://boot.dev) after", TextType.PLAIN_TEXT)
+    ]
+
+    split_first = split_nodes_links(initial)
+    result = delimit_nodes(split_first)
+
+    assert result == [
+        TextNode("before ", TextType.PLAIN_TEXT),
+        TextNode("**docs**", TextType.ANCHOR_TEXT, "https://boot.dev"),
+        TextNode(" after", TextType.PLAIN_TEXT),
+    ]
 
 
 def test_extract_markdown_links_extracts_multiple_valid_matches() -> None:

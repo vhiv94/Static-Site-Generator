@@ -9,6 +9,12 @@ from leaf_node import LeafNode
 
 extractLinksfunc = Callable[[str], list[tuple[str, str]]]
 
+DELIMITERS = [
+    ("`", TextType.CODE_TEXT),
+    ("**", TextType.BOLD_TEXT),
+    ("_", TextType.ITALIC_TEXT),
+]
+
 LINK_PREFIXES = ("http://", "https://", "/", "./", "../", "#", "mailto:")
 IMAGE_PATH_PREFIXES = ("/", "./", "../")
 
@@ -16,7 +22,7 @@ LINK_TARGET = (
     r"(?:https?://[^)\s]+|/[^)\s]*|\./[^)\s]*|\.\./[^)\s]*|#[^)\s]+|mailto:[^)\s]+)"
 )
 URL_REGEX = rf"\[([^\]]+)\]\(({LINK_TARGET})\)"
-IMAGE_REGEX = r"!\[([^\]]+)\]\(((?:/|\./|\.\./)[^)\s]*)\)"
+IMAGE_REGEX = r"!\[([^\]]+)\]((/|\./|\.\./)[^)\s]*)"
 
 
 def _require_url(url: str | None, error_message: str) -> str:
@@ -89,6 +95,30 @@ def split_nodes_delimiter(
     return new_nodes
 
 
+def delimit_nodes(old_nodes: list[TextNode]) -> list[TextNode]:
+    new_nodes: list[TextNode] = []
+    for node in old_nodes:
+        if node.text_type != TextType.PLAIN_TEXT:
+            new_nodes.append(node)
+            continue
+
+        delimiters = []
+        for delimiter, text_type in DELIMITERS:
+            if delimiter in node.text:
+                delimiters.append((delimiter, text_type))
+
+        if len(delimiters) == 0:
+            new_nodes.append(node)
+            continue
+
+        inner_nodes: list[TextNode] = [node]
+        for delimiter, text_type in delimiters:
+            inner_nodes = split_nodes_delimiter(inner_nodes, delimiter, text_type)
+        new_nodes.extend(inner_nodes)
+
+    return new_nodes
+
+
 def extract_links_factory(regex: str) -> extractLinksfunc:
     def wrapper(text: str) -> list[tuple[str, str]]:
         return re.findall(regex, text)
@@ -98,3 +128,7 @@ def extract_links_factory(regex: str) -> extractLinksfunc:
 
 extract_markdown_links = extract_links_factory(URL_REGEX)
 extract_markdown_images = extract_links_factory(IMAGE_REGEX)
+
+
+def split_nodes_links(old_nodes: list[TextNode]) -> list[TextNode]:
+    raise NotImplementedError("split_nodes_links is not implemented yet")
