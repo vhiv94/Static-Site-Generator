@@ -1,6 +1,8 @@
 import pytest
 
+from html_node import HTMLNode
 from src.md_to_html import (
+    markdown_to_html,
     text_to_leaf_nodes,
     extract_links_factory,
     URL_REGEX,
@@ -9,17 +11,20 @@ from src.md_to_html import (
     split_nodes_on_delimiter,
     text_node_to_leaf_node,
     split_markdown_blocks,
+    get_block_type_from_block,
+    _list_to_list_node,
+    _parse_list_nodes_r,
 )
-from leaf_node import LeafNode
-from text_node import TextNode, TextType
+from parent_node import DivNode
+from text_node import BlockType, TextNode, TextType
 
 
 def assert_leaf_nodes(
-    nodes: list[LeafNode],
+    nodes: list[HTMLNode],
     expected: list[tuple[str | None, str | None, dict[str, str] | None]],
 ) -> None:
-    assert all(isinstance(node, LeafNode) for node in nodes)
-    assert [(node.tag, node.value, node.props) for node in nodes] == expected
+    assert all(isinstance(node, HTMLNode) for node in nodes)
+    assert [(node.tag, node.value, node.attributes) for node in nodes] == expected
 
 
 @pytest.mark.parametrize(
@@ -40,7 +45,7 @@ def test_text_node_to_leaf_node_anchor_accepts_valid_url_prefixes(url: str) -> N
 
     assert leaf_node.tag == "a"
     assert leaf_node.value == "link text"
-    assert leaf_node.props == {"href": url}
+    assert leaf_node.attributes == {"href": url}
 
 
 @pytest.mark.parametrize(
@@ -75,7 +80,7 @@ def test_text_node_to_leaf_node_alt_accepts_valid_path_prefixes(url: str) -> Non
 
     assert leaf_node.tag == "img"
     assert leaf_node.value is None
-    assert leaf_node.props == {"src": url, "alt": "hero image"}
+    assert leaf_node.attributes == {"src": url, "alt": "hero image"}
 
 
 @pytest.mark.parametrize(
@@ -117,7 +122,7 @@ def test_text_node_to_leaf_node_non_link_or_image_types_map_to_expected_leaf_tag
 
     assert leaf_node.tag == expected_tag
     assert leaf_node.value == "plain value"
-    assert leaf_node.props is None
+    assert leaf_node.attributes is None
 
 
 def test_text_node_to_leaf_node_anchor_allows_leading_whitespace_and_mixed_case_scheme() -> (
@@ -126,21 +131,24 @@ def test_text_node_to_leaf_node_anchor_allows_leading_whitespace_and_mixed_case_
     node = TextNode("link text", TextType.LINK, "   HtTpS://Boot.Dev/path")
     leaf_node = text_node_to_leaf_node(node)
 
-    assert leaf_node.props == {"href": "   HtTpS://Boot.Dev/path"}
+    assert leaf_node.attributes == {"href": "   HtTpS://Boot.Dev/path"}
 
 
 def test_text_node_to_leaf_node_anchor_preserves_original_href_value() -> None:
     node = TextNode("link text", TextType.LINK, "  HTTPS://Boot.Dev")
     leaf_node = text_node_to_leaf_node(node)
 
-    assert leaf_node.props == {"href": "  HTTPS://Boot.Dev"}
+    assert leaf_node.attributes == {"href": "  HTTPS://Boot.Dev"}
 
 
 def test_text_node_to_leaf_node_alt_preserves_original_src_and_alt_values() -> None:
     node = TextNode("Profile image", TextType.IMAGE, "   ../assets/pic.png")
     leaf_node = text_node_to_leaf_node(node)
 
-    assert leaf_node.props == {"src": "   ../assets/pic.png", "alt": "Profile image"}
+    assert leaf_node.attributes == {
+        "src": "   ../assets/pic.png",
+        "alt": "Profile image",
+    }
 
 
 def test_split_nodes_delimiter_returns_original_plain_node_when_delimiter_missing() -> (
@@ -409,3 +417,153 @@ def test_split_markdown_blocks_raises_for_extra_blank_lines_between_blocks() -> 
     markdown = "first\n\n\n\nsecond"
     with pytest.raises(ValueError, match="too much white space in markdown file"):
         split_markdown_blocks(markdown)
+
+
+@pytest.mark.parametrize(
+    ("block", "expected"),
+    [
+        ("# heading", BlockType.HEADING),
+        ("```code```", BlockType.CODE),
+        ("> quote", BlockType.QUOTE),
+        ("- item", BlockType.UNORDERED_LIST),
+        ("* item", BlockType.UNORDERED_LIST),
+        ("1. first", BlockType.ORDERED_LIST),
+        ("2. second", BlockType.ORDERED_LIST),
+        ("10. tenth", BlockType.ORDERED_LIST),
+        ("paragraph text", BlockType.PARAGRAPH),
+    ],
+)
+def test_get_block_type_from_block_detects_types_from_first_character(
+    block: str, expected: BlockType
+) -> None:
+    assert get_block_type_from_block(block) == expected
+
+
+def test_get_block_type_from_block_requires_space_after_ordered_list_marker() -> None:
+    assert get_block_type_from_block("2.second item") == BlockType.PARAGRAPH
+
+
+def test_get_block_type_from_block_uses_first_character_not_following_lines() -> None:
+    block = "paragraph intro\n- nested list line"
+    assert get_block_type_from_block(block) == BlockType.PARAGRAPH
+
+
+def test_markdown_to_html_converts_heading_paragraph_and_quote_blocks() -> None:
+    markdown = "# Heading One\n\nParagraph body text\n\n> Quoted line"
+
+    node = markdown_to_html(markdown)
+
+    assert isinstance(node, DivNode)
+    assert node.to_html() == (
+        "<div><h1>Heading One</h1><p>Paragraph body text</p>"
+        "<blockquote>Quoted line</blockquote></div>"
+    )
+
+
+def test_markdown_to_html_converts_code_block_without_language_and_preserves_newlines() -> (
+    None
+):
+    markdown = "```\nline 1\nline 2\n```"
+
+    node = markdown_to_html(markdown)
+
+    assert isinstance(node, DivNode)
+    assert node.to_html() == "<div><pre><code>\nline 1\nline 2\n</code></pre></div>"
+
+
+def test_markdown_to_html_converts_code_block_with_language_class_attribute() -> None:
+    markdown = "```python\nprint('hello')\n```"
+
+    node = markdown_to_html(markdown)
+
+    assert isinstance(node, DivNode)
+    assert (
+        node.to_html()
+        == "<div><pre><code class=\"language-python\">\nprint('hello')\n</code></pre></div>"
+    )
+
+
+@pytest.mark.parametrize(
+    ("markdown", "expected_html"),
+    [
+        (
+            "- first\n- second",
+            "<div><ul><li>first</li><li>second</li></ul></div>",
+        ),
+        (
+            "1. first\n2. second",
+            "<div><ol><li>first</li><li>second</li></ol></div>",
+        ),
+    ],
+)
+def test_markdown_to_html_converts_basic_list_blocks(
+    markdown: str, expected_html: str
+) -> None:
+    node = markdown_to_html(markdown)
+
+    assert isinstance(node, DivNode)
+    assert node.to_html() == expected_html
+
+
+def test_markdown_to_html_converts_tab_indented_nested_unordered_list() -> None:
+    markdown = "- parent\n\t- child one\n\t- child two\n- sibling"
+
+    node = markdown_to_html(markdown)
+
+    assert isinstance(node, DivNode)
+    assert (
+        node.to_html()
+        == "<div><ul><li>parent<ul><li>child one</li><li>child two</li></ul></li>"
+        "<li>sibling</li></ul></div>"
+    )
+
+
+@pytest.mark.parametrize(
+    ("lines", "is_ordered", "expected"),
+    [
+        (
+            ["- alpha", "- beta"],
+            False,
+            [("li", "alpha"), ("li", "beta")],
+        ),
+        (
+            ["1. alpha", "2. beta"],
+            True,
+            [("li", "alpha"), ("li", "beta")],
+        ),
+    ],
+)
+def test_parse_list_nodes_builds_li_nodes_for_ordered_and_unordered_lists(
+    lines: list[str], is_ordered: bool, expected: list[tuple[str, str]]
+) -> None:
+    nodes = _list_to_list_node(lines, is_ordered=is_ordered)
+
+    assert [(node.tag, node.children[0].value) for node in nodes] == expected
+
+
+def test_parse_list_level_handles_indent_increase_then_decrease() -> None:
+    lines = ["- parent", "\t- child", "- sibling"]
+
+    nodes, idx = _parse_list_nodes_r(lines, idx=0, depth=0, is_ordered=False)
+
+    assert idx == 3
+    assert len(nodes) == 2
+    assert nodes[0].tag == "li"
+    assert nodes[0].children[0].value == "parent"
+    assert nodes[0].children[1].tag == "ul"
+    assert nodes[0].children[1].children[0].children[0].value == "child"
+    assert nodes[1].children[0].value == "sibling"
+
+
+@pytest.mark.parametrize(
+    ("lines", "error"),
+    [
+        (["\t- orphan child"], "nested list without parent item"),
+        (["- valid", "invalid marker line"], "line isn't formatted properly"),
+    ],
+)
+def test_parse_list_helpers_raise_errors_for_malformed_input(
+    lines: list[str], error: str
+) -> None:
+    with pytest.raises(ValueError, match=error):
+        _list_to_list_node(lines, is_ordered=False)

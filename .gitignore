@@ -13,4 +13,5 @@ wheels/
 
 # other random files
 private/
+public/
 .cursor/

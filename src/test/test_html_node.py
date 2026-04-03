@@ -21,8 +21,8 @@ class ConcreteHTMLNode(HTMLNode):
     ],
 )
 def test_props_to_html_formats_props(props, expected):
-    test1 = ConcreteHTMLNode(props=props)
-    assert test1.props_to_html() == expected
+    test1 = ConcreteHTMLNode(attributes=props)
+    assert test1.attributes_to_html() == expected
 
 
 def test_html_node_stores_tag_value():
@@ -42,8 +42,8 @@ def test_html_node_stores_children_value():
 
 
 def test_html_node_stores_props_value():
-    node = ConcreteHTMLNode(props={"href": "https://www.google.com"})
-    assert node.props == {"href": "https://www.google.com"}
+    node = ConcreteHTMLNode(attributes={"href": "https://www.google.com"})
+    assert node.attributes == {"href": "https://www.google.com"}
 
 
 def test_html_node_is_abstract_and_requires_to_html() -> None:
@@ -60,7 +60,7 @@ def test_repr_returns_populated_field_values():
         tag="div",
         value="hello",
         children=[],
-        props={"class": "title"},
+        attributes={"class": "title"},
     )
     assert repr(node) == "HTMLNode(div, hello, [], {'class': 'title'})"
 
@@ -93,9 +93,9 @@ def test_html_node_init_raises_type_error_when_children_items_invalid() -> None:
 @pytest.mark.parametrize("props", ["props", [("k", "v")], object()])
 def test_html_node_init_raises_type_error_when_props_not_dict(props: object) -> None:
     with pytest.raises(TypeError):
-        ConcreteHTMLNode(props=props)  # type: ignore[arg-type]
+        ConcreteHTMLNode(attributes=props)  # type: ignore[arg-type]
 
 
 def test_html_node_init_raises_type_error_when_props_items_invalid() -> None:
     with pytest.raises(TypeError):
-        ConcreteHTMLNode(props={"href": 123})  # type: ignore[dict-item]
+        ConcreteHTMLNode(attributes={"href": 123})  # type: ignore[dict-item]

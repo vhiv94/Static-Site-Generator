@@ -14,7 +14,7 @@ def test_leaf_node_stores_value_value() -> None:
 
 def test_leaf_node_stores_props_value() -> None:
     node = LeafNode("a", "boot.dev", {"href": "https://boot.dev"})
-    assert node.props == {"href": "https://boot.dev"}
+    assert node.attributes == {"href": "https://boot.dev"}
 
 
 def test_leaf_node_sets_children_to_none() -> None:

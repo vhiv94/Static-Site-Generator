@@ -1,4 +1,4 @@
-from html_node import HTMLNode
+from src.html_node import HTMLNode
 
 
 class LeafNode(HTMLNode):
@@ -15,8 +15,8 @@ class LeafNode(HTMLNode):
         if not self.tag:
             return "" if self.value is None else self.value
         elif self.value is None:
-            return f"<{self.tag}{self.props_to_html()} />"
-        return f"<{self.tag}{self.props_to_html()}>{self.value}</{self.tag}>"
+            return f"<{self.tag}{self.attributes_to_html()} />"
+        return f"<{self.tag}{self.attributes_to_html()}>{self.value}</{self.tag}>"
 
     def __repr__(self):
-        return f"LeafNode({self.tag}, {self.value}, {self.props})"
+        return f"LeafNode({self.tag}, {self.value}, {self.attributes})"

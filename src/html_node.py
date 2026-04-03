@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from typing import Mapping
 
 
 class HTMLNode(ABC):
@@ -8,7 +9,7 @@ class HTMLNode(ABC):
         tag: str | None = None,
         value: str | None = None,
         children: list[HTMLNode] | None = None,
-        props: dict[str, str] | None = None,
+        attributes: Mapping[str, str | int] | None = None,
     ) -> None:
         if tag is not None and not isinstance(tag, str):
             raise TypeError("Error: HTMLNode: tags must be a string or None")
@@ -23,23 +24,31 @@ class HTMLNode(ABC):
                 raise TypeError(
                     "Error: HTMLNode: each child must be an HTMLNode subclass"
                 )
-        if props is not None:
-            if not isinstance(props, dict):
+        if attributes is not None:
+            if not isinstance(attributes, dict):
                 raise TypeError(
                     "Error: HTMLNode: props must be a dictionary of string/string pairs or None"
                 )
             if not all(
-                isinstance(key, str) and isinstance(val, str)
-                for key, val in props.items()
+                isinstance(key, str) and (isinstance(val, str) or isinstance(val, int))
+                for key, val in attributes.items()
             ):
                 raise TypeError(
-                    "Error: HTMLNode: props must be a dictionary of string/string pairs or None"
+                    "Error: HTMLNode: props must be a dictionary of string/string or string/int pairs or None"
                 )
 
-        self.tag = tag
+        self._tag = tag
         self._value = value
         self._children = children
-        self.props = props
+        self.attributes = attributes
+
+    @property
+    def tag(self) -> str | None:
+        return self._tag
+
+    @tag.setter
+    def tag(self, val: str | None) -> None:
+        raise AttributeError("Error: HTMLNode: cannot change the tag of any node")
 
     @property
     def value(self) -> str | None:
@@ -61,10 +70,10 @@ class HTMLNode(ABC):
     def to_html(self) -> str:
         pass
 
-    def props_to_html(self) -> str:
-        if self.props is None:
+    def attributes_to_html(self) -> str:
+        if self.attributes is None:
             return ""
-        return "".join(f' {key}="{value}"' for key, value in self.props.items())
+        return "".join(f' {key}="{value}"' for key, value in self.attributes.items())
 
     def __repr__(self) -> str:
-        return f"HTMLNode({self.tag}, {self.value}, {self.children}, {self.props})"
+        return f"HTMLNode({self.tag}, {self.value}, {self.children}, {self.attributes})"

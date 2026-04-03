@@ -1,10 +1,12 @@
 {
     "configurations": [
         {
-            "name": "Python Debugger: Python File",
+            "name": "Python Debugger: Current file (uv)",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}"
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "python": "${workspaceFolder}/.venv/bin/python"
         }
     ]
 }
