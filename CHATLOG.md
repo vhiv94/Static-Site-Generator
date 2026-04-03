@@ -108,3 +108,9 @@
 - Assistant: Simplified regex constants in `src/converters.py` so `IMAGE_REGEX` reuses the shared link target pattern, updated image extraction tests in `src/test/test_converters.py` to accept `https` image targets (and keep `ftp` invalid), removed an import-time debug call from `converters.py` that surfaced as a collection error after regex expansion, and verified `49 passed, 3 xfailed` in converter tests plus `117 passed, 3 xfailed` in full `src/test` with clean lints.
 - User: "clean up xfail tests and investigate failing line 91 in test_converters.py"
 - Assistant: Removed stale `@pytest.mark.xfail` decorators from three now-passing `text_to_leaf_nodes_future_*` tests, updated the invalid image-path parameterization to remove `https://...` and add explicit invalid `ftp://...`, then verified `52 passed` in `src/test/test_converters.py` and `120 passed` in full `src/test` with clean lints.
+- User: "added a new function to @src/md_to_html.py, please add a few tests to @src/test/test_md_to_html.py ..."
+- Assistant: Added focused tests for `split_markdown_blocks` in `src/test/test_md_to_html.py` (multi-block split, outer-whitespace trim, single-block behavior, in-block single-newline preservation, and extra-blank-line empty-block handling), then ran `PYTHONPATH=\"src\" uv run pytest -qr a src/test/test_md_to_html.py` (`57 passed`) with clean lints.
+- User: "we don't want to preserve the extra blank lines ... how should I simplify that conditional?"
+- Assistant: Updated `split_markdown_blocks` in `src/md_to_html.py` to use `re.search(r\"\\n{3,9}\", markdown)` for a direct 3–9 consecutive-newline check, changed the extra-blank-lines test in `src/test/test_md_to_html.py` to expect `ValueError`, and verified `PYTHONPATH=\"src\" uv run pytest -qr a src/test/test_md_to_html.py` (`57 passed`) with clean lints.
+- User: "... a regex, of course, brilliant, thanks!"
+- Assistant: Confirmed and kept guidance concise; no further code changes requested.
